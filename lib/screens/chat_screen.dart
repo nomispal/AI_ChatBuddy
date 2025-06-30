@@ -22,7 +22,7 @@ class ChatScreen extends StatelessWidget {
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  '${provider.selectedPersona.toUpperCase()} Mode',
+                  '${provider.selectedPersona.toUpperCase()} Mode • Groq AI',
                   style: const TextStyle(fontSize: 12, color: Colors.white70),
                 ),
               ],

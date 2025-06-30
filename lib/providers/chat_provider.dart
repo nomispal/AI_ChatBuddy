@@ -86,6 +86,9 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Add a delay to respect rate limits (especially for free tier)
+      await Future.delayed(const Duration(seconds: 2));
+
       // Prepare conversation history for API
       List<Map<String, String>> conversation = _currentSession!.messages
           .map((msg) => {
@@ -94,9 +97,15 @@ class ChatProvider extends ChangeNotifier {
               })
           .toList();
 
-      // Get AI response
+      // Remove the last message (the one we just added) from the conversation history
+      // since we want to send all previous messages as context
+      if (conversation.isNotEmpty) {
+        conversation.removeLast();
+      }
+
+      // Get AI response using the corrected conversation history
       String aiResponse = await _gptService.sendConversation(
-        conversation.take(conversation.length - 1).toList(), // Don't include the message we just added
+        conversation,
         _currentSession!.persona,
       );
 
@@ -110,9 +119,10 @@ class ChatProvider extends ChangeNotifier {
       _currentSession!.messages.add(aiMessage);
       
     } catch (e) {
-      // Add error message if API call fails
+      // Add more detailed error message for debugging
+      print('Error in sendMessage: $e');
       final errorMessage = ChatMessage(
-        text: 'Sorry, I encountered an error. Please try again.',
+        text: 'Sorry, I encountered an error: $e\nPlease check your API key and internet connection.',
         isUser: false,
         timestamp: DateTime.now(),
       );
