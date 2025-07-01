@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
-// import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:flutter/material.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
 import '../services/gpt_service.dart';
+import '../services/database_service.dart';
 
 class ChatProvider extends ChangeNotifier {
   // Current state variables
@@ -14,6 +14,10 @@ class ChatProvider extends ChangeNotifier {
   
   // Services
   final GPTService _gptService = GPTService();
+  final DatabaseService _databaseService = DatabaseService();
+  
+  // Scroll controller for auto-scroll
+  final ScrollController scrollController = ScrollController();
 
   // Getters (ways for UI to access the data)
   List<ChatSession> get chatSessions => _chatSessions;
@@ -24,12 +28,12 @@ class ChatProvider extends ChangeNotifier {
 
   // Initialize the provider (load saved chats)
   Future<void> initialize() async {
-    // await loadChatSessions(); // Temporarily disabled
+    await loadChatSessions();
     notifyListeners();
   }
 
   // Create a new chat session
-  void startNewChat(String persona) {
+  Future<void> startNewChat(String persona) async {
     final session = ChatSession(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: 'New Chat',
@@ -42,8 +46,10 @@ class ChatProvider extends ChangeNotifier {
     _currentSession = session;
     _selectedPersona = persona;
     
+    // Save to database
+    await _databaseService.saveChatSession(session);
+    
     notifyListeners(); // Tell UI to update
-    // saveChatSessions(); // Save to storage - temporarily disabled
   }
 
   // Send a message in the current chat
@@ -59,12 +65,20 @@ class ChatProvider extends ChangeNotifier {
 
     _currentSession!.messages.add(userMessage);
     
+    // Save user message to database
+    await _databaseService.addMessageToSession(_currentSession!.id, userMessage);
+    
     // Update title if this is the first message
     if (_currentSession!.messages.length == 1) {
+      final newTitle = text.length > 30 ? '${text.substring(0, 30)}...' : text;
+      
+      // Update title in database
+      await _databaseService.updateSessionTitle(_currentSession!.id, newTitle);
+      
       // Create a new session with updated title
       final updatedSession = ChatSession(
         id: _currentSession!.id,
-        title: text.length > 30 ? '${text.substring(0, 30)}...' : text,
+        title: newTitle,
         persona: _currentSession!.persona,
         messages: _currentSession!.messages,
         createdAt: _currentSession!.createdAt,
@@ -79,7 +93,7 @@ class ChatProvider extends ChangeNotifier {
     }
 
     notifyListeners();
-    // saveChatSessions(); // temporarily disabled
+    _scrollToBottom();
 
     // Show loading state
     _isLoading = true;
@@ -118,6 +132,9 @@ class ChatProvider extends ChangeNotifier {
 
       _currentSession!.messages.add(aiMessage);
       
+      // Save AI message to database
+      await _databaseService.addMessageToSession(_currentSession!.id, aiMessage);
+      
     } catch (e) {
       // Add more detailed error message for debugging
       print('Error in sendMessage: $e');
@@ -127,11 +144,14 @@ class ChatProvider extends ChangeNotifier {
         timestamp: DateTime.now(),
       );
       _currentSession!.messages.add(errorMessage);
+      
+      // Save error message to database
+      await _databaseService.addMessageToSession(_currentSession!.id, errorMessage);
     }
 
     _isLoading = false;
     notifyListeners();
-    // saveChatSessions(); // temporarily disabled
+    _scrollToBottom();
   }
 
   // Switch to a different chat session
@@ -142,7 +162,11 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // Delete a chat session
-  void deleteChatSession(String sessionId) {
+  Future<void> deleteChatSession(String sessionId) async {
+    // Delete from database
+    await _databaseService.deleteChatSession(sessionId);
+    
+    // Remove from local list
     _chatSessions.removeWhere((session) => session.id == sessionId);
     
     // If we deleted the current session, clear it
@@ -151,7 +175,6 @@ class ChatProvider extends ChangeNotifier {
     }
     
     notifyListeners();
-    // saveChatSessions(); // temporarily disabled
   }
 
   // Change persona for new chats
@@ -160,39 +183,46 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Save chat sessions to local storage (temporarily disabled)
-  Future<void> saveChatSessions() async {
-    // Temporarily disabled due to build issues
-    // try {
-    //   final prefs = await SharedPreferences.getInstance();
-    //   final sessionsJson = _chatSessions.map((session) => session.toJson()).toList();
-    //   await prefs.setString('chat_sessions', jsonEncode(sessionsJson));
-    // } catch (e) {
-    //   print('Error saving chat sessions: $e');
-    // }
+  // Load chat sessions from database
+  Future<void> loadChatSessions() async {
+    try {
+      _chatSessions = await _databaseService.loadAllChatSessions();
+    } catch (e) {
+      print('Error loading chat sessions: $e');
+      _chatSessions = [];
+    }
+    notifyListeners();
   }
 
-  // Load chat sessions from local storage (temporarily disabled)
-  Future<void> loadChatSessions() async {
-    // Temporarily disabled due to build issues
-    // try {
-    //   final prefs = await SharedPreferences.getInstance();
-    //   final sessionsString = prefs.getString('chat_sessions');
-    //   
-    //   if (sessionsString != null) {
-    //     final sessionsList = jsonDecode(sessionsString) as List;
-    //     _chatSessions = sessionsList
-    //         .map((sessionJson) => ChatSession.fromJson(sessionJson))
-    //         .toList();
-    //     
-    //     // Sort by creation date (newest first)
-    //     _chatSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    //   }
-    // } catch (e) {
-    //   print('Error loading chat sessions: $e');
-    //   _chatSessions = [];
-    // }
-    
-    notifyListeners();
+  // Clear all chat sessions
+  Future<void> clearAllChats() async {
+    try {
+      await _databaseService.clearAllData();
+      _chatSessions.clear();
+      _currentSession = null;
+      notifyListeners();
+    } catch (e) {
+      print('Error clearing chats: $e');
+    }
+  }
+
+  // Auto-scroll to bottom of chat
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients) {
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  // Dispose method to clean up scroll controller
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
   }
 } 

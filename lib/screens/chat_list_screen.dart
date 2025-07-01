@@ -1,44 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
-import '../models/chat_message.dart';
-import '../widgets/message_bubble.dart';
-import '../widgets/chat_input.dart';
+import '../models/chat_session.dart';
+import 'chat_screen.dart';
 
-class ChatScreen extends StatelessWidget {
-  const ChatScreen({super.key});
+class ChatListScreen extends StatelessWidget {
+  const ChatListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'AI ChatBuddy',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Your AI Conversations',
+              style: TextStyle(fontSize: 12, color: Colors.white70),
+            ),
+          ],
         ),
-        title: Consumer<ChatProvider>(
-          builder: (context, provider, child) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  provider.currentSession?.title ?? 'AI ChatBuddy',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '${provider.selectedPersona.toUpperCase()} Mode • Groq AI',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
-                ),
-              ],
-            );
-          },
-        ),
-        backgroundColor: const Color(0xFF075E54), // WhatsApp green
+        backgroundColor: const Color(0xFF075E54),
         foregroundColor: Colors.white,
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
-              final provider = Provider.of<ChatProvider>(context, listen: false);
               if (value == 'new_chat') {
                 _showPersonaDialog(context);
               }
@@ -60,58 +50,28 @@ class ChatScreen extends StatelessWidget {
       ),
       body: Consumer<ChatProvider>(
         builder: (context, provider, child) {
-          if (provider.currentSession == null) {
-            return _buildWelcomeScreen(context);
+          if (provider.chatSessions.isEmpty) {
+            return _buildEmptyState(context);
           }
 
-          return Column(
-            children: [
-              // Messages list
-              Expanded(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE5DDD5), // WhatsApp background
-                  ),
-                  child: ListView.builder(
-                    controller: provider.scrollController, // Add scroll controller
-                    padding: const EdgeInsets.all(8.0),
-                    itemCount: provider.currentMessages.length,
-                    itemBuilder: (context, index) {
-                      final message = provider.currentMessages[index];
-                      return MessageBubble(message: message);
-                    },
-                  ),
-                ),
-              ),
-              
-              // Loading indicator
-              if (provider.isLoading)
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  child: const Row(
-                    children: [
-                      SizedBox(width: 16),
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      SizedBox(width: 8),
-                      Text('AI is typing...'),
-                    ],
-                  ),
-                ),
-              
-              // Input area
-              ChatInput(),
-            ],
+          return ListView.builder(
+            itemCount: provider.chatSessions.length,
+            itemBuilder: (context, index) {
+              final session = provider.chatSessions[index];
+              return _buildChatTile(context, session, provider);
+            },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showPersonaDialog(context),
+        backgroundColor: const Color(0xFF075E54),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
-  Widget _buildWelcomeScreen(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFFE5DDD5),
@@ -136,7 +96,7 @@ class ChatScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Choose an AI persona to start chatting',
+              'Start your first conversation with AI',
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 32),
@@ -154,6 +114,104 @@ class ChatScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildChatTile(BuildContext context, ChatSession session, ChatProvider provider) {
+    String lastMessage = 'No messages yet';
+    String lastMessageTime = '';
+    
+    if (session.messages.isNotEmpty) {
+      final lastMsg = session.messages.last;
+      lastMessage = lastMsg.text;
+      if (lastMessage.length > 50) {
+        lastMessage = '${lastMessage.substring(0, 50)}...';
+      }
+      
+      final now = DateTime.now();
+      final diff = now.difference(lastMsg.timestamp);
+      
+      if (diff.inDays > 0) {
+        lastMessageTime = '${diff.inDays}d ago';
+      } else if (diff.inHours > 0) {
+        lastMessageTime = '${diff.inHours}h ago';
+      } else if (diff.inMinutes > 0) {
+        lastMessageTime = '${diff.inMinutes}m ago';
+      } else {
+        lastMessageTime = 'Just now';
+      }
+    }
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFF075E54),
+          child: Icon(
+            _getPersonaIcon(session.persona),
+            color: Colors.white,
+          ),
+        ),
+        title: Text(
+          session.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              lastMessage,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Text(
+                  '${session.persona.toUpperCase()} • $lastMessageTime',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${session.messages.length} msgs',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        onTap: () {
+          provider.selectChatSession(session);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ChatScreen(),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  IconData _getPersonaIcon(String persona) {
+    switch (persona) {
+      case 'student':
+        return Icons.school;
+      case 'teacher':
+        return Icons.person;
+      case 'coach':
+        return Icons.fitness_center;
+      default:
+        return Icons.chat;
+    }
   }
 
   void _showPersonaDialog(BuildContext context) {
@@ -206,8 +264,12 @@ class ChatScreen extends StatelessWidget {
         final provider = Provider.of<ChatProvider>(context, listen: false);
         await provider.startNewChat(persona);
         
-        // No need to navigate since we're already on ChatScreen
-        // The Consumer will automatically rebuild with the new session
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ChatScreen(),
+          ),
+        );
       },
       child: Container(
         padding: const EdgeInsets.all(16),

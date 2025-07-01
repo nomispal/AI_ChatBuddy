@@ -10,7 +10,7 @@ class ApiConfig {
   
   // Validate if API key is set
   static bool get isApiKeySet {
-    return apiKey.isNotEmpty && apiKey != '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';
+    return apiKey.isNotEmpty && apiKey.startsWith('gsk_');
   }
 }
 

@@ -38,8 +38,9 @@ dependencies:
   # State management
   provider: ^6.0.5
   
-  # Local storage for saving chats (temporarily removed due to build issues)
-  # shared_preferences: ^2.2.2
+  # Database for persistent storage
+  sqflite: ^2.3.0
+  path: ^1.8.3
   
   # Speech to text functionality (temporarily removed due to build issues)
   # speech_to_text: ^6.3.0

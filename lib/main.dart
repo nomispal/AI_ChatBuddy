@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/chat_provider.dart';
+import 'screens/chat_list_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/chat_history_screen.dart';
 
@@ -21,7 +22,7 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF075E54)),
           useMaterial3: true,
         ),
-        home: const ChatScreen(),
+        home: const ChatListScreen(),
         routes: {
           '/chat_history': (context) => const ChatHistoryScreen(),
         },
