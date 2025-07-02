@@ -159,6 +159,8 @@ class ChatProvider extends ChangeNotifier {
     _currentSession = session;
     _selectedPersona = session.persona;
     notifyListeners();
+    // Auto-scroll to bottom to show recent messages
+    _scrollToBottom();
   }
 
   // Delete a chat session

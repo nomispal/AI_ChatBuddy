@@ -75,32 +75,18 @@ class ChatScreen extends StatelessWidget {
                   child: ListView.builder(
                     controller: provider.scrollController, // Add scroll controller
                     padding: const EdgeInsets.all(8.0),
-                    itemCount: provider.currentMessages.length,
+                    itemCount: provider.currentMessages.length + (provider.isLoading ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == provider.currentMessages.length && provider.isLoading) {
+                        // Show typing indicator as the last item when AI is typing
+                        return const TypingIndicator();
+                      }
                       final message = provider.currentMessages[index];
                       return MessageBubble(message: message);
                     },
                   ),
                 ),
               ),
-              
-              // Loading indicator
-              if (provider.isLoading)
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  child: const Row(
-                    children: [
-                      SizedBox(width: 16),
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      SizedBox(width: 8),
-                      Text('AI is typing...'),
-                    ],
-                  ),
-                ),
               
               // Input area
               ChatInput(),

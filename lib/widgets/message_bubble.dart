@@ -132,4 +132,119 @@ class MessageBubble extends StatelessWidget {
       return 'now';
     }
   }
+}
+
+// New TypingIndicator widget
+class TypingIndicator extends StatefulWidget {
+  const TypingIndicator({super.key});
+
+  @override
+  State<TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<TypingIndicator>
+    with TickerProviderStateMixin {
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          // AI avatar
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: const Color(0xFF075E54),
+            child: const Icon(
+              Icons.android,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 8),
+          
+          // Typing indicator bubble
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12.0,
+                vertical: 12.0,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                  bottomLeft: Radius.circular(4),
+                  bottomRight: Radius.circular(12),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'AI is typing',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AnimatedBuilder(
+                    animation: _animationController,
+                    builder: (context, child) {
+                      return Row(
+                        children: List.generate(3, (index) {
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                            height: 6,
+                            width: 6,
+                            decoration: BoxDecoration(
+                              color: (_animationController.value * 3) % 3 > index
+                                  ? const Color(0xFF075E54)
+                                  : Colors.grey[400],
+                              shape: BoxShape.circle,
+                            ),
+                          );
+                        }),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 } 
