@@ -11,6 +11,10 @@ AI ChatBuddy is a Flutter-based chat application that lets you interact with dif
 - Secure API key management
 - Offline message storage
 
+## Visuals ✨
+
+<img width="800" alt="Thumbnail" src="https://github.com/user-attachments/assets/b0848580-5d5e-4497-8c88-bc06d6a5a63a" />
+
 ## Getting Started 🚀
 
 ### Prerequisites
